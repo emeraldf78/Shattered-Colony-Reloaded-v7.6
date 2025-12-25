@@ -1,0 +1,46 @@
+name: Build Shattered Colony IPA
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Find and Build Project
+        run: |
+          # 1. Automatically find the path to the project file
+          PROJ_PATH=$(find . -name "ShatteredColony.xcodeproj" -print -quit)
+          echo "Found project at: $PROJ_PATH"
+          
+          # 2. Extract the directory path
+          PROJ_DIR=$(dirname "$PROJ_PATH")
+          
+          # 3. Build the Archive
+          xcodebuild archive \
+            -project "$PROJ_PATH" \
+            -scheme "ShatteredColony" \
+            -archivePath "$PROJ_DIR/ShatteredColony.xcarchive" \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Create IPA Payload
+        run: |
+          # Find the built .app folder and package it
+          APP_PATH=$(find . -name "*.app" -type d -path "*/Applications/*" -print -quit)
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r ShatteredColony.ipa Payload
+
+      - name: Upload Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShatteredColony-IPA
+          path: ShatteredColony.ipa
